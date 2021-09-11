@@ -34,9 +34,10 @@ impl EventHandler for Handler {
         if reaction.emoji == gold_reaction {
             let pin_message: Message = reaction.message(&ctx.http).await.unwrap();
 
+            let pin_channel: u64 = env::var("PIN_CHANNEL").expect("token").parse::<u64>().unwrap();
             let embed_title = &["By ", &pin_message.author.mention().to_string(), " at [", &pin_message.timestamp.to_string(), "](", pin_message.link().as_str(), ")"].concat();
 
-            let _msg = ChannelId(886313003610431549).send_message(&ctx.http, |m| {
+            let _msg = ChannelId(pin_channel).send_message(&ctx.http, |m| {
                 m.embed(|e| {
                     e.title("it's a pin!");
                     e.description(&[embed_title, "\n```", pin_message.content.as_str(), "```"].concat());
