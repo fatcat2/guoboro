@@ -1,5 +1,7 @@
 # guoboro
 
+[![Docker](https://github.com/fatcat2/guoboro/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fatcat2/guoboro/actions/workflows/docker-publish.yml)
+
 A pinning bot made in Rust. Available as a Docker container!
 
 ## Running with Docker
