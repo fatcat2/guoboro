@@ -79,15 +79,6 @@ async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     }
 
 
-    /*let message_block: String = messages.iter().map(|msg| {
-        let mut line = nicks.get(&msg.author.id.to_string()).unwrap().clone();
-        line.push_str(": ");
-        line.push_str(msg.content.as_str());
-        line.push_str("\n");
-        line
-    }).collect::<Vec<String>>().concat();*/
-   
-
     let pin_channel: u64 = env::var("PIN_CHANNEL").expect("token").parse::<u64>().unwrap();
     let embed_title = &["By ", &msg.author.mention().to_string(), " at [", &msg.timestamp.to_string(), "](", messages[0].link().as_str(), ")"].concat();
     //let res = first * second;
@@ -114,8 +105,22 @@ impl EventHandler for Handler {
         let emoji: String = env::var("PIN_EMOJI").expect("token");
         let gold_reaction: ReactionType = ReactionType::try_from(emoji.as_str()).unwrap();
 
+
         if reaction.emoji == gold_reaction {
             let pin_message: Message = reaction.message(&ctx.http).await.unwrap();
+
+            let mut count = 0;
+
+            for reaction in &pin_message.reactions {
+                if reaction.reaction_type == gold_reaction {
+                    count = reaction.count;
+                    break;
+                }
+            };
+
+            if count != 1 {
+                return;
+            }
 
             let pin_channel: u64 = env::var("PIN_CHANNEL").expect("token").parse::<u64>().unwrap();
             let embed_title = &["By ", &pin_message.author.mention().to_string(), " at [", &pin_message.timestamp.to_string(), "](", pin_message.link().as_str(), ")"].concat();
