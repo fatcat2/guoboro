@@ -1,13 +1,16 @@
 use std::convert::TryFrom;
-
 use std::collections::HashMap;
+
+use cached::proc_macro::cached;
+use cached::Return;
 
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
+use serenity::http::client::Http;
 use serenity::model::channel::Message;
 use serenity::model::channel::Reaction;
 use serenity::model::channel::ReactionType;
-use serenity::model::id::{ChannelId, MessageId};
+use serenity::model::id::{ChannelId, GuildId, MessageId};
 
 use serenity::framework::standard::{
     StandardFramework,
@@ -31,14 +34,24 @@ struct General;
 struct Handler;
 
 #[group]
-// Sets a single prefix for this group.
-// So one has to call commands in this group
-// via `~math` instead of just `~`.
 #[commands(pin)]
 struct Pin;
 
+#[cached(size=100, with_cached_flag = true)]
+async fn get_nickname(user_id: u64, guild_id: u64) -> Return<String>{
+    let token = env::var("DISCORD_TOKEN").expect("token");
+    let http: Http = Http::new_with_token(&token);
+    let nick: String = match GuildId(guild_id).member(http, user_id).await {
+        Ok(x) => match x.nick {
+            Some(nickname) => nickname,
+            None => x.user.name
+        },
+        Err(e) => e.to_string()
+    };
+    Return::new(nick)
+}
+
 #[command]
-// Lets us also call `~math *` instead of just `~math multiply`.
 async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let first = args.single::<String>()?;
     let second = args.single::<u64>()?;
@@ -59,29 +72,27 @@ async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     
     let mut nicks: HashMap<String, String> = HashMap::new();
     for message in messages.clone() {
-        let nick: String = match message.author_nick(&ctx.http).await {
-            Some(x) => x,
-            None => message.author.name
-        };
-        nicks.insert(message.author.id.to_string(), nick);
+        let nick: Return<String> = get_nickname(*message.author.id.as_u64(), *msg.guild_id.unwrap().as_u64()).await;
+        println!("{}", nick.was_cached);
+        nicks.insert(message.author.id.to_string(), nick.to_string());
     }
 
     messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
-    let mut message_block: String = String::new();
-
-    for message in messages.clone(){
-        let mut line: String = nicks.get(&message.author.id.to_string()).unwrap().clone();
+    let message_block: String = messages.iter().map(|msg| {
+        let mut line = nicks.get(&msg.author.id.to_string()).unwrap().clone();
         line.push_str(": ");
-        line.push_str(message.content.as_str());
+        line.push_str(msg.content.as_str());
         line.push_str("\n");
-        message_block.push_str(line.as_str())
-    }
+        line
+    }).collect::<Vec<String>>().concat();
 
 
     let pin_channel: u64 = env::var("PIN_CHANNEL").expect("token").parse::<u64>().unwrap();
-    let embed_title = &["By ", &msg.author.mention().to_string(), " at [", &msg.timestamp.to_string(), "](", messages[0].link().as_str(), ")"].concat();
-    //let res = first * second;
+    let embed_title = &[
+        "By ",&msg.author.mention().to_string(),
+        " at [", &msg.timestamp.to_string(),"](",messages[0].link().as_str(),")"
+        ].concat();
     let _msg = ChannelId(pin_channel).send_message(&ctx.http, |m| {
                 m.embed(|e| {
                     e.title("it's a pin!");
