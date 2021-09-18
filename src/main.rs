@@ -73,7 +73,6 @@ async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut nicks: HashMap<String, String> = HashMap::new();
     for message in messages.clone() {
         let nick: Return<String> = get_nickname(*message.author.id.as_u64(), *msg.guild_id.unwrap().as_u64()).await;
-        println!("{}", nick.was_cached);
         nicks.insert(message.author.id.to_string(), nick.to_string());
     }
 
