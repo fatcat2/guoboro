@@ -48,14 +48,17 @@ async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = ids.get(&ids.len() - 2).unwrap();
 
     let channel: ChannelId = ChannelId(channel_id.parse::<u64>().unwrap());
-    
-    let messages: Vec<Message>  = channel.messages(&ctx.http, |retriever| {
+
+    let mut messages: Vec<Message> = vec![channel.message(&ctx.http, MessageId(message_id.parse::<u64>().unwrap())).await.unwrap()];
+    let mut after_messages: Vec<Message>  = channel.messages(&ctx.http, |retriever| {
         retriever.after(MessageId(message_id.parse::<u64>().unwrap()))
             .limit(second)
     }).await.unwrap();
 
+    messages.append(&mut after_messages);
+    
     let mut nicks: HashMap<String, String> = HashMap::new();
-    for message in messages.clone().into_iter() {
+    for message in messages.clone() {
         let nick: String = match message.author_nick(&ctx.http).await {
             Some(x) => x,
             None => message.author.name
@@ -63,14 +66,26 @@ async fn pin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         nicks.insert(message.author.id.to_string(), nick);
     }
 
+    messages.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
-    let message_block: String = messages.iter().map(|msg| {
+    let mut message_block: String = String::new();
+
+    for message in messages.clone(){
+        let mut line: String = nicks.get(&message.author.id.to_string()).unwrap().clone();
+        line.push_str(": ");
+        line.push_str(message.content.as_str());
+        line.push_str("\n");
+        message_block.push_str(line.as_str())
+    }
+
+
+    /*let message_block: String = messages.iter().map(|msg| {
         let mut line = nicks.get(&msg.author.id.to_string()).unwrap().clone();
         line.push_str(": ");
         line.push_str(msg.content.as_str());
         line.push_str("\n");
         line
-    }).collect::<Vec<String>>().concat();
+    }).collect::<Vec<String>>().concat();*/
    
 
     let pin_channel: u64 = env::var("PIN_CHANNEL").expect("token").parse::<u64>().unwrap();
