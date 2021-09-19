@@ -6,6 +6,7 @@ use cached::Return;
 
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
+use serenity::http::CacheHttp;
 use serenity::http::client::Http;
 use serenity::model::channel::Message;
 use serenity::model::channel::Reaction;
@@ -31,11 +32,16 @@ use std::env;
 #[commands(ping)]
 struct General;
 
+
 struct Handler;
 
 #[group]
 #[commands(pin)]
 struct Pin;
+
+#[group]
+#[commands(shibe)]
+struct Shibe;
 
 #[cached(size=100, with_cached_flag = true)]
 async fn get_nickname(user_id: u64, guild_id: u64) -> Return<String>{
@@ -49,6 +55,23 @@ async fn get_nickname(user_id: u64, guild_id: u64) -> Return<String>{
         Err(e) => e.to_string()
     };
     Return::new(nick)
+}
+
+#[command]
+async fn shibe(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let first = args.single::<String>()?;
+    let second = args.single::<String>()?;
+
+    if first != "gibe" && second != "pls" {
+        msg.reply(&ctx.http, "no >:(").await.unwrap();
+    }
+
+    let mut resp = reqwest::get("https://shibe.online/api/shibes?count=1&urls=true&httpsUrls=true")
+        .await?
+        .json::<Vec<String>>()
+        .await?;
+    msg.channel_id.say(&ctx.http, resp.pop().unwrap()).await.unwrap();
+    Ok(())
 }
 
 #[command]
@@ -164,6 +187,7 @@ async fn main() {
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!")) // set the bot's prefix to "~"
         .group(&GENERAL_GROUP)
+        .group(&SHIBE_GROUP)
         .group(&PIN_GROUP);
 
     // Login with a bot token from the environment
